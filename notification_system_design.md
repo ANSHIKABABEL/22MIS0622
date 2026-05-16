@@ -795,3 +795,261 @@ Log("backend", "warn", "db", "High database load detected");
 
 Log("backend", "info", "service", "WebSocket notification pushed");
 ```
+
+
+# Stage 5
+
+# Problems In The Given Implementation
+
+## Provided Pseudocode
+
+```txt
+function notify_all(student_ids: array, message: string):
+    for student_id in student_ids:
+        send_email(student_id, message)
+        save_to_db(student_id, message)
+        push_to_app(student_id, message)
+```
+
+---
+
+# Shortcomings
+
+## 1. Sequential Processing
+
+Notifications are sent one-by-one.
+
+For 50,000 students, this becomes extremely slow.
+
+---
+
+## 2. Email Failure Stops Reliability
+
+If `send_email()` fails midway:
+- some students receive notifications
+- some do not
+
+This creates inconsistency.
+
+---
+
+## 3. No Retry Mechanism
+
+Temporary failures are not retried.
+
+---
+
+## 4. No Queue System
+
+Direct synchronous processing overloads:
+- server
+- email provider
+- database
+
+---
+
+## 5. Tight Coupling
+
+Email sending, DB storage, and app notifications are tightly coupled.
+
+Failure in one step affects others.
+
+---
+
+## 6. Poor Scalability
+
+Single-threaded sequential execution does not scale for large workloads.
+
+---
+
+# What Happens If send_email Fails For 200 Students?
+
+The system becomes inconsistent.
+
+Possible issues:
+- database may contain notification
+- email may not be delivered
+- app notification may still appear
+
+This creates partial failure scenarios.
+
+---
+
+# Recommended Solution
+
+Use:
+- message queues
+- asynchronous workers
+- retry mechanisms
+- batch processing
+
+---
+
+# Suggested Architecture
+
+## Step 1
+
+HR triggers:
+
+```http
+POST /notifications/notify-all
+```
+
+---
+
+## Step 2
+
+Backend immediately pushes jobs into a queue.
+
+Example:
+- RabbitMQ
+- Kafka
+- AWS SQS
+
+---
+
+## Step 3
+
+Worker services process notifications independently.
+
+Workers:
+- send emails
+- save notifications
+- push real-time app notifications
+
+---
+
+## Step 4
+
+Failed jobs move to retry queue.
+
+Retries can use:
+- exponential backoff
+- retry limits
+
+---
+
+# Should DB Save And Email Sending Happen Together?
+
+No.
+
+They should be decoupled.
+
+---
+
+# Why?
+
+Database writes are critical system records.
+
+Email delivery is an external side effect.
+
+If email provider fails:
+- notification data should still remain stored safely.
+
+This improves reliability and fault tolerance.
+
+---
+
+# Better Approach
+
+## First
+
+Save notification to database.
+
+---
+
+## Then
+
+Queue email and app notification jobs asynchronously.
+
+This ensures:
+- durable storage
+- retry capability
+- scalability
+
+---
+
+# Revised Pseudocode
+
+```txt
+function notify_all(student_ids, message, type):
+
+    for student_id in student_ids:
+
+        save_notification_to_db(student_id, message, type)
+
+        add_job_to_queue({
+            student_id,
+            message,
+            type
+        })
+
+
+worker_process():
+
+    while queue_not_empty():
+
+        job = get_next_job()
+
+        try:
+
+            send_email(job.student_id, job.message)
+
+            push_to_app(job.student_id, job.message)
+
+            mark_job_completed(job)
+
+        catch error:
+
+            retry_job(job)
+
+            log_error(error)
+```
+
+---
+
+# Additional Improvements
+
+## 1. Batch Inserts
+
+Insert notifications in batches instead of one-by-one.
+
+Improves DB performance significantly.
+
+---
+
+## 2. Parallel Workers
+
+Multiple workers can process jobs simultaneously.
+
+Improves throughput.
+
+---
+
+## 3. Dead Letter Queue
+
+Repeatedly failed jobs move to dead-letter queue for manual review.
+
+---
+
+## 4. Rate Limiting
+
+Protect email providers from overload.
+
+---
+
+# Logging Middleware Usage
+
+Bulk notification operations should be logged extensively.
+
+## Examples
+
+```ts
+Log("backend", "info", "queue", "Bulk notification job queued");
+
+Log("backend", "warn", "service", "Email retry initiated");
+
+Log("backend", "error", "service", "Email delivery failed");
+
+Log("backend", "info", "db", "Notifications stored successfully");
+```
