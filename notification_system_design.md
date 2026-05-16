@@ -388,3 +388,191 @@ Log("backend", "info", "db", "Fetching notifications from database");
 
 Log("backend", "error", "db", "Database query failed");
 ```
+
+
+# Stage 3
+
+# Query Analysis
+
+## Given Query
+
+```sql
+SELECT * FROM notifications
+WHERE studentID = 1042 AND isRead = false
+ORDER BY createdAt ASC;
+```
+
+---
+
+# Is This Query Accurate?
+
+The query is logically correct because it fetches unread notifications for a student and sorts them by creation time.
+
+However, the query may perform slowly on large datasets.
+
+Current Scale:
+- 50,000 students
+- 5,000,000 notifications
+
+At this scale, full table scans become expensive.
+
+---
+
+# Why Is The Query Slow?
+
+Possible reasons:
+
+- Missing indexes
+- Sorting overhead
+- Large dataset scanning
+- Fetching unnecessary columns using `SELECT *`
+
+Without proper indexes, the database may scan millions of rows.
+
+Sorting by `createdAt` also increases computation cost.
+
+---
+
+# Optimized Query
+
+```sql
+SELECT id, notification_type, message, created_at
+FROM notifications
+WHERE student_id = 1042
+AND is_read = FALSE
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+---
+
+# Improvements Made
+
+## 1. Avoided SELECT *
+
+Only required columns are fetched.
+
+This reduces:
+- memory usage
+- network transfer
+- query cost
+
+---
+
+## 2. Added LIMIT
+
+Pagination prevents loading massive datasets.
+
+---
+
+## 3. Better Sorting Order
+
+Recent notifications are usually more useful.
+
+Descending order improves user experience.
+
+---
+
+# Recommended Index
+
+```sql
+CREATE INDEX idx_student_read_created
+ON notifications(student_id, is_read, created_at DESC);
+```
+
+---
+
+# Why Composite Index?
+
+This index helps with:
+- filtering by `student_id`
+- filtering by `is_read`
+- sorting by `created_at`
+
+The database can directly use the index without scanning the entire table.
+
+---
+
+# Likely Computation Cost
+
+## Without Index
+
+Time Complexity:
+
+```txt
+O(n)
+```
+
+Full table scan over millions of rows.
+
+---
+
+## With Composite Index
+
+Approximate Complexity:
+
+```txt
+O(log n)
+```
+
+Much faster lookup and sorting.
+
+---
+
+# Should We Add Indexes On Every Column?
+
+No.
+
+Adding indexes on every column is not effective.
+
+---
+
+# Problems With Excessive Indexing
+
+## 1. Increased Storage Usage
+
+Indexes consume additional disk space.
+
+---
+
+## 2. Slower Writes
+
+Every insert/update/delete operation must also update indexes.
+
+This increases write latency.
+
+---
+
+## 3. Unused Indexes Waste Resources
+
+Indexes should only be created on:
+- frequently filtered columns
+- frequently sorted columns
+- join columns
+
+---
+
+# Query To Find Students Who Got Placement Notifications In Last 7 Days
+
+```sql
+SELECT DISTINCT student_id
+FROM notifications
+WHERE notification_type = 'Placement'
+AND created_at >= NOW() - INTERVAL '7 days';
+```
+
+---
+
+# Logging Middleware Usage
+
+Query execution and optimization monitoring will use logging middleware.
+
+## Examples
+
+```ts
+Log("backend", "info", "db", "Fetching unread notifications");
+
+Log("backend", "warn", "db", "Slow query detected");
+
+Log("backend", "error", "db", "Database timeout");
+```
