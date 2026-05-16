@@ -1053,3 +1053,96 @@ Log("backend", "error", "service", "Email delivery failed");
 
 Log("backend", "info", "db", "Notifications stored successfully");
 ```
+
+
+# Stage 6
+
+# Priority Inbox Implementation
+
+The Priority Inbox displays the top 10 most important unread notifications.
+
+Priority is determined using:
+1. notification weight
+2. recency
+
+---
+
+# Priority Weights
+
+| Notification Type | Weight |
+|---|---|
+| Placement | 3 |
+| Result | 2 |
+| Event | 1 |
+
+---
+
+# Sorting Logic
+
+Notifications are sorted by:
+1. higher priority weight first
+2. latest timestamp first
+
+---
+
+# Time Complexity
+
+Sorting complexity:
+
+```txt
+O(n log n)
+```
+
+Where:
+- n = number of notifications
+
+---
+
+# Efficient Maintenance Of Top 10
+
+Instead of sorting the entire dataset repeatedly, a Min Heap / Priority Queue can be used.
+
+## Advantages
+
+- Efficient insertion
+- Faster updates
+- Better scalability
+- Maintains top 10 dynamically
+
+---
+
+# Approach
+
+1. Fetch notifications from API
+2. Assign weights based on type
+3. Sort notifications
+4. Select top 10
+5. Display results
+
+---
+
+# Future Optimization
+
+For real-time systems:
+- maintain a fixed-size heap
+- update heap when new notifications arrive
+- remove lowest priority notification automatically
+
+This reduces unnecessary sorting.
+
+---
+
+# Logging Middleware Usage
+
+The implementation uses logging for:
+- API failures
+- notification processing
+- sorting operations
+
+## Examples
+
+```ts
+Log("backend", "info", "service", "Fetched notifications successfully");
+
+Log("backend", "error", "api", "Failed to fetch notifications");
+```
