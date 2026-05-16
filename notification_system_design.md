@@ -185,3 +185,206 @@ Log("backend", "info", "route", "Fetched notifications");
 
 Log("backend", "error", "service", "Notification creation failed");
 ```
+
+
+
+
+# Stage 2
+
+# Persistent Storage Choice
+
+I would use PostgreSQL as the primary persistent database.
+
+## Why PostgreSQL?
+
+- Strong ACID compliance
+- Reliable relational data storage
+- Excellent indexing support
+- Efficient querying for notifications
+- Supports scaling and partitioning
+- Suitable for structured notification systems
+
+---
+
+# Database Schema
+
+## Students Table
+
+```sql
+CREATE TABLE students (
+    student_id VARCHAR(20) PRIMARY KEY,
+    student_name VARCHAR(100),
+    email VARCHAR(100)
+);
+```
+
+---
+
+## Notifications Table
+
+```sql
+CREATE TYPE notification_type AS ENUM (
+    'Event',
+    'Result',
+    'Placement'
+);
+
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY,
+    student_id VARCHAR(20),
+    notification_type notification_type,
+    message TEXT,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(student_id)
+);
+```
+
+---
+
+# Suggested Indexes
+
+```sql
+CREATE INDEX idx_student_read
+ON notifications(student_id, is_read);
+
+CREATE INDEX idx_created_at
+ON notifications(created_at);
+
+CREATE INDEX idx_notification_type
+ON notifications(notification_type);
+```
+
+---
+
+# Problems As Data Volume Increases
+
+As the number of students and notifications increases, the following problems may occur:
+
+- Slow query execution
+- Increased database load
+- High memory consumption
+- Slower sorting and filtering
+- API response delays
+- Higher concurrent read traffic
+
+---
+
+# Solutions For Scaling
+
+## 1. Indexing
+
+Indexes improve query performance for frequently searched fields.
+
+---
+
+## 2. Pagination
+
+Instead of loading all notifications together:
+
+```http
+GET /notifications?page=1&limit=10
+```
+
+This reduces memory and response time.
+
+---
+
+## 3. Database Partitioning
+
+Partition notifications table based on:
+- date
+- student_id
+
+This improves query performance on large datasets.
+
+---
+
+## 4. Caching
+
+Use Redis caching for:
+- unread notifications
+- frequently accessed notifications
+
+This reduces database load significantly.
+
+---
+
+## 5. Read Replicas
+
+Use database read replicas for heavy read traffic.
+
+Main DB:
+- writes
+
+Replica DBs:
+- reads
+
+---
+
+# SQL Queries
+
+## Fetch All Notifications
+
+```sql
+SELECT *
+FROM notifications
+WHERE student_id = '22MIS0622'
+ORDER BY created_at DESC
+LIMIT 10 OFFSET 0;
+```
+
+---
+
+## Fetch Unread Notifications
+
+```sql
+SELECT *
+FROM notifications
+WHERE student_id = '22MIS0622'
+AND is_read = FALSE
+ORDER BY created_at DESC;
+```
+
+---
+
+## Mark Notification As Read
+
+```sql
+UPDATE notifications
+SET is_read = TRUE
+WHERE id = 'notification-id';
+```
+
+---
+
+## Create Notification
+
+```sql
+INSERT INTO notifications (
+    id,
+    student_id,
+    notification_type,
+    message
+)
+VALUES (
+    gen_random_uuid(),
+    '22MIS0622',
+    'Placement',
+    'Amazon hiring drive'
+);
+```
+
+---
+
+# Logging Middleware Integration
+
+Database operations will use logging middleware extensively.
+
+## Examples
+
+```ts
+Log("backend", "info", "db", "Fetching notifications from database");
+
+Log("backend", "error", "db", "Database query failed");
+```
