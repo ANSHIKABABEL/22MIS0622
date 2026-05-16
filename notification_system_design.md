@@ -576,3 +576,222 @@ Log("backend", "warn", "db", "Slow query detected");
 
 Log("backend", "error", "db", "Database timeout");
 ```
+
+
+# Stage 4
+
+# Problem Statement
+
+Notifications are currently fetched from the database on every page load for every student.
+
+This causes:
+- excessive database reads
+- high response time
+- increased server load
+- poor user experience
+
+---
+
+# Suggested Solutions
+
+## 1. Redis Caching
+
+Use Redis to cache:
+- unread notifications
+- recently fetched notifications
+- priority notifications
+
+---
+
+# How It Works
+
+1. User requests notifications
+2. Backend checks Redis cache
+3. If cache exists:
+   - return cached data
+4. Otherwise:
+   - fetch from database
+   - store result in Redis
+   - return response
+
+---
+
+# Advantages
+
+- Faster response times
+- Reduced database load
+- Better scalability
+- Improved user experience
+
+---
+
+# Tradeoffs
+
+- Additional infrastructure complexity
+- Cache invalidation challenges
+- Extra memory usage
+
+---
+
+# 2. Pagination
+
+Instead of loading all notifications:
+
+```http
+GET /notifications?page=1&limit=10
+```
+
+---
+
+# Advantages
+
+- Lower memory consumption
+- Faster API responses
+- Reduced payload size
+
+---
+
+# Tradeoffs
+
+- Requires additional frontend logic
+- Users must navigate between pages
+
+---
+
+# 3. Lazy Loading / Infinite Scrolling
+
+Load notifications gradually as user scrolls.
+
+---
+
+# Advantages
+
+- Better frontend performance
+- Improved user experience
+- Smaller initial API response
+
+---
+
+# Tradeoffs
+
+- Slightly more frontend complexity
+- More API calls
+
+---
+
+# 4. WebSockets For Real-Time Updates
+
+Instead of polling repeatedly, push notifications instantly.
+
+---
+
+# Advantages
+
+- Real-time updates
+- Lower repeated API calls
+- Better scalability
+
+---
+
+# Tradeoffs
+
+- Persistent socket connection management
+- More backend complexity
+
+---
+
+# 5. Read Replicas
+
+Use separate read databases.
+
+Main DB:
+- writes
+
+Replica DBs:
+- reads
+
+---
+
+# Advantages
+
+- Distributes read load
+- Improves scalability
+
+---
+
+# Tradeoffs
+
+- Replication lag
+- Additional infrastructure cost
+
+---
+
+# 6. Database Indexing
+
+Indexes on:
+- student_id
+- is_read
+- created_at
+
+Improve query performance significantly.
+
+---
+
+# Tradeoffs
+
+- Increased storage usage
+- Slightly slower inserts/updates
+
+---
+
+# 7. CDN And Edge Caching
+
+Static frontend assets can be cached using CDN.
+
+---
+
+# Advantages
+
+- Faster frontend loading
+- Reduced backend traffic
+
+---
+
+# Tradeoffs
+
+- Cache invalidation management
+
+---
+
+# Recommended Architecture
+
+For this notification system, the best approach would combine:
+
+- PostgreSQL
+- Redis caching
+- WebSockets
+- Pagination
+- Indexed queries
+- Read replicas
+
+This provides:
+- high scalability
+- low latency
+- efficient database usage
+- better real-time performance
+
+---
+
+# Logging Middleware Usage
+
+Performance optimization events should be logged.
+
+## Examples
+
+```ts
+Log("backend", "info", "cache", "Notifications fetched from Redis cache");
+
+Log("backend", "warn", "db", "High database load detected");
+
+Log("backend", "info", "service", "WebSocket notification pushed");
+```
